@@ -1,0 +1,63 @@
+:root {
+  --bg: #fafafa;
+  --ink: #222;
+  --mut: #888;
+  --line: #e2e2e2;
+  --acc: #0f766e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; padding: 2px 6px; }
+
+#app { display: flex; min-height: 100vh; }
+
+/* sidebar */
+#sidebar {
+  width: 220px;
+  flex: none;
+  padding: 20px 12px;
+  border-right: 1px solid var(--line);
+}
+#sidebar h3 { font-size: 12px; text-transform: uppercase; color: var(--mut); margin: 20px 6px 6px; }
+.nav { display: flex; align-items: center; justify-content: space-between; border-radius: 6px; }
+.nav button.name { flex: 1; text-align: left; padding: 6px 8px; }
+.nav.active { background: #e6f2f0; color: var(--acc); font-weight: 600; }
+.nav .x { color: var(--mut); }
+#sidebar form input {
+  width: 100%; margin-top: 8px; padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 6px; background: #fff;
+}
+
+/* tasks */
+main { flex: 1; max-width: 640px; padding: 20px; }
+#add-title {
+  width: 100%; padding: 10px 12px; margin-bottom: 16px;
+  border: 1px solid var(--line); border-radius: 6px; background: #fff;
+}
+#add-title:focus, #sidebar input:focus { outline: 2px solid var(--acc); border-color: transparent; }
+.empty { color: var(--mut); text-align: center; margin-top: 40px; }
+
+.task { background: #fff; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; }
+.row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.row .title { flex: 1; text-align: left; overflow-wrap: anywhere; }
+.row .due { font-size: 13px; color: var(--mut); }
+.task.done .title { text-decoration: line-through; color: var(--mut); }
+.star { font-size: 18px; color: var(--mut); }
+.star.on { color: #e0a100; }
+
+.edit { padding: 8px 10px 12px 36px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.edit input, .edit textarea {
+  width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+}
+.edit .del { justify-self: start; color: #b91c1c; }
+
+@media (max-width: 600px) {
+  #app { flex-direction: column; }
+  #sidebar { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); }
+}
