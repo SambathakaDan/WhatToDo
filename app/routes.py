@@ -55,3 +55,28 @@ def update_task(task_id: int, data: TaskUpdate, session: Session = Depends(get_s
     session.commit()                                     # save to todo.db
     session.refresh(task)
     return task                                          # send the updated task back (200)
+
+@router.delete("/tasks/{task_id}", status_code=204)   # 204 = success, nothing to send back
+def delete_task(task_id: int, session: Session = Depends(get_session)):
+    task = session.get(Task, task_id)                 # find the task by its id
+    if not task:
+        raise HTTPException(404, "Task not found")    # no such task, answer 404
+    session.delete(task)                              # remove it
+    session.commit()                                  # save the change to todo.db
+    # no return, 204 means an empty answer
+
+
+@router.delete("/lists/{list_id}", status_code=204)
+def delete_list(list_id: int, session: Session = Depends(get_session)):
+    the_list = session.get(List, list_id)             # find the list by its id
+    if not the_list:
+        raise HTTPException(404, "List not found")    # no such list, answer 404
+
+    tasks = session.exec(select(Task).where(Task.list_id == list_id)).all()
+    # get every task that belongs to this list
+
+    for task in tasks:                                # delete each of those tasks first
+        session.delete(task)
+
+    session.delete(the_list)                          # then delete the list itself
+    session.commit()                                  # save everything at once
