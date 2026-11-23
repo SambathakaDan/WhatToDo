@@ -18,3 +18,24 @@ class Task(SQLModel, table=True):        # a second table, for tasks
     due_date: Optional[date] = None      # optional due date
     important: bool = False              # the star, off by default
     done: bool = False                   # the checkbox, off by default
+
+class ListCreate(SQLModel):              # what the frontend sends to create a list
+    name: str = Field(min_length=1, max_length=200)
+    # 1 to 200 characters, otherwise FastAPI sends 422 automatically
+
+
+class TaskCreate(SQLModel):              # what the frontend sends to create a task
+    list_id: int                         # which list the task goes in
+    title: str = Field(min_length=1, max_length=200)   # same 1 to 200 rule
+    note: str = ""                       # optional
+    due_date: Optional[date] = None      # optional
+    important: bool = False              # optional
+
+class TaskUpdate(SQLModel):              # what the frontend sends to change a task
+    list_id: Optional[int] = None        # every field is optional, send only what changed
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    # if title is sent, it must still be 1 to 200 characters
+    note: Optional[str] = None
+    due_date: Optional[date] = None
+    important: Optional[bool] = None
+    done: Optional[bool] = None
