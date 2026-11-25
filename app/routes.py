@@ -1,82 +1,77 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlmodel import Session, select
 from app.db import get_session
-from app.models import List, Task, ListCreate, TaskCreate, TaskUpdate   # TaskUpdate is new
+from app.models import List, ListCreate, Task, TaskCreate, TaskUpdate
 
-router = APIRouter(prefix="/api")
-
-
-@router.get("/lists", response_model=list[List])
-def get_lists(session: Session = Depends(get_session)):
-    return session.exec(select(List)).all()
+router = APIRouter()
 
 
-@router.get("/tasks", response_model=list[Task])
-def get_tasks(session: Session = Depends(get_session)):
-    return session.exec(select(Task)).all()
+def get_user_id(x_user_id: str = Header(default="default-user")) -> str:
+    return x_user_id.strip() or "default-user"
 
 
-@router.post("/lists", response_model=List, status_code=201)
-def create_list(data: ListCreate, session: Session = Depends(get_session)):
-    new_list = List.model_validate(data)
-    session.add(new_list)
+@router.get("/lists")
+def read_lists(user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    return session.exec(select(List).where(List.user_id == user_id)).all()
+
+
+@router.post("/lists")
+def create_list(data: ListCreate, user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    item = List(name=data.name, user_id=user_id)
+    session.add(item)
     session.commit()
-    session.refresh(new_list)
-    return new_list
+    session.refresh(item)
+    return item
 
 
-@router.post("/tasks", response_model=Task, status_code=201)
-def create_task(data: TaskCreate, session: Session = Depends(get_session)):
-    if not session.get(List, data.list_id):
-        raise HTTPException(404, "List not found")
-    task = Task.model_validate(data)
+@router.delete("/lists/{list_id}")
+def delete_list(list_id: int, user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    item = session.exec(select(List).where(List.id == list_id, List.user_id == user_id)).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="List not found")
+    tasks = session.exec(select(Task).where(Task.list_id == list_id, Task.user_id == user_id)).all()
+    for t in tasks:
+        session.delete(t)
+    session.delete(item)
+    session.commit()
+    return {"ok": True}
+
+
+@router.get("/tasks")
+def read_tasks(user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    return session.exec(select(Task).where(Task.user_id == user_id)).all()
+
+
+@router.post("/tasks")
+def create_task(data: TaskCreate, user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    parent = session.exec(select(List).where(List.id == data.list_id, List.user_id == user_id)).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="List not found")
+    task = Task(**data.model_dump(), user_id=user_id)
     session.add(task)
     session.commit()
     session.refresh(task)
     return task
 
 
-@router.patch("/tasks/{task_id}", response_model=Task)   # {task_id} is the number in the URL
-def update_task(task_id: int, data: TaskUpdate, session: Session = Depends(get_session)):
-    task = session.get(Task, task_id)                    # find the task by its id
+@router.patch("/tasks/{task_id}")
+def update_task(task_id: int, data: TaskUpdate, user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    task = session.exec(select(Task).where(Task.id == task_id, Task.user_id == user_id)).first()
     if not task:
-        raise HTTPException(404, "Task not found")       # no such task, answer 404
-
-    changes = data.model_dump(exclude_unset=True)
-    # only the fields the frontend actually sent, so unsent fields stay unchanged
-
-    if "list_id" in changes and not session.get(List, changes["list_id"]):
-        raise HTTPException(404, "List not found")       # moving to a list that doesn't exist
-
-    for key, value in changes.items():                   # go through each changed field
-        setattr(task, key, value)                        # set task.key = value
-
+        raise HTTPException(status_code=404, detail="Task not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(task, k, v)
     session.add(task)
-    session.commit()                                     # save to todo.db
+    session.commit()
     session.refresh(task)
-    return task                                          # send the updated task back (200)
+    return task
 
-@router.delete("/tasks/{task_id}", status_code=204)   # 204 = success, nothing to send back
-def delete_task(task_id: int, session: Session = Depends(get_session)):
-    task = session.get(Task, task_id)                 # find the task by its id
+
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id: int, user_id: str = Depends(get_user_id), session: Session = Depends(get_session)):
+    task = session.exec(select(Task).where(Task.id == task_id, Task.user_id == user_id)).first()
     if not task:
-        raise HTTPException(404, "Task not found")    # no such task, answer 404
-    session.delete(task)                              # remove it
-    session.commit()                                  # save the change to todo.db
-    # no return, 204 means an empty answer
-
-
-@router.delete("/lists/{list_id}", status_code=204)
-def delete_list(list_id: int, session: Session = Depends(get_session)):
-    the_list = session.get(List, list_id)             # find the list by its id
-    if not the_list:
-        raise HTTPException(404, "List not found")    # no such list, answer 404
-
-    tasks = session.exec(select(Task).where(Task.list_id == list_id)).all()
-    # get every task that belongs to this list
-
-    for task in tasks:                                # delete each of those tasks first
-        session.delete(task)
-
-    session.delete(the_list)                          # then delete the list itself
-    session.commit()                                  # save everything at once
+        raise HTTPException(status_code=404, detail="Task not found")
+    session.delete(task)
+    session.commit()
+    return {"ok": True}

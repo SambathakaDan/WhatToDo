@@ -1,29 +1,25 @@
-// api.js (C): the one place that talks to the server.
-// Every call goes to /api/..., which A's FastAPI routes answer.
+﻿function getUserId() {
+  let id = localStorage.getItem("whattodo-user-id");
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
+    localStorage.setItem("whattodo-user-id", id);
+  }
+  return id;
+}
 
 async function api(method, path, body) {
-  const res = await fetch("/api" + path, {
+  const opts = {
     method,
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-
-  if (res.status === 204) return null; // delete routes answer with nothing
-
-  if (!res.ok) {
-    let message = "Request failed (" + res.status + ")";
-    try {
-      const data = await res.json();
-      if (typeof data.detail === "string") {
-        message = data.detail; // 404 from A's routes, e.g. "Task not found"
-      } else if (Array.isArray(data.detail) && data.detail[0]) {
-        message = data.detail[0].msg; // 422 validation error from FastAPI
-      }
-    } catch (e) {
-      // body was not JSON, keep the generic message
+    headers: {
+      "Content-Type": "application/json",
+      "X-User-Id": getUserId()
     }
-    throw new Error(message);
+  };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Request failed: " + res.status);
   }
-
   return res.json();
 }
